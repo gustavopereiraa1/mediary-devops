@@ -1,0 +1,77 @@
+name: CD
+
+# Continuous Deployment: gera as imagens Docker e atualiza o servidor EC2
+on:
+  push:
+    branches: [ "main" ]
+
+  workflow_dispatch:
+
+env:
+  IMAGEM_APP: ${{ vars.DOCKERHUB_USERNAME }}/mediary-app
+  IMAGEM_API: ${{ vars.DOCKERHUB_USERNAME }}/mediary-api
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and push app image (Node.js)
+        run: |
+          set -eu
+          docker build . --file Dockerfile --tag "$IMAGEM_APP":"${{ github.sha }}"
+          docker tag "$IMAGEM_APP":"${{ github.sha }}" "$IMAGEM_APP":latest
+          docker push -a "$IMAGEM_APP"
+
+      - name: Build and push API image (Flask)
+        run: |
+          set -eu
+          docker build api --file api/Dockerfile --tag "$IMAGEM_API":"${{ github.sha }}"
+          docker tag "$IMAGEM_API":"${{ github.sha }}" "$IMAGEM_API":latest
+          docker push -a "$IMAGEM_API"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ success() }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose to Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: docker-compose.yaml
+          target: /opt/mediary-devops
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DOCKERHUB_USERNAME,POSTGRES_PASSWORD,SECRET_KEY
+          script: |
+            set -eu
+            cd /opt/mediary-devops
+            printf 'DOCKERHUB_USERNAME=%s\nPOSTGRES_PASSWORD=%s\nSECRET_KEY=%s\n' \
+              "$DOCKERHUB_USERNAME" "$POSTGRES_PASSWORD" "$SECRET_KEY" > .env
+            chmod 600 .env
+            docker compose pull
+            docker compose up -d
+            docker image prune -f
