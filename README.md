@@ -4,7 +4,7 @@ Aplicação web para registrar e acompanhar sintomas: front-end em **React**, se
 
 Trabalho N3 da disciplina **Ferramentas de Implantação Contínua — DevOps**.
 
-**Integrantes:** _(preencher)_
+**Integrantes:** Gustavo Santos Pereira
 
 ---
 
