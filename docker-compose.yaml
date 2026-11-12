@@ -1,0 +1,54 @@
+# Sobe o Mediary completo no servidor EC2.
+# As variáveis ${...} vêm do arquivo .env criado pelo workflow de deploy.
+services:
+  app:
+    # Servidor Node.js (Express): entrega o front-end e repassa /api para a API
+    image: ${DOCKERHUB_USERNAME}/mediary-app:latest
+    restart: always
+    ports:
+      - "80:3000"
+    environment:
+      API_URL: http://api:5000
+    depends_on:
+      - api
+    networks:
+      - mediary-network
+
+  api:
+    # API Flask
+    image: ${DOCKERHUB_USERNAME}/mediary-api:latest
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://mediary:${POSTGRES_PASSWORD}@db:5432/mediary
+      SECRET_KEY: ${SECRET_KEY}
+      APP_TIMEZONE: America/Sao_Paulo
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - mediary-network
+
+  db:
+    # Banco PostgreSQL (os dados ficam no volume pgdata)
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: mediary
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: mediary
+      TZ: America/Sao_Paulo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediary -d mediary"]
+      interval: 5s
+      retries: 10
+    networks:
+      - mediary-network
+
+volumes:
+  pgdata:
+
+networks:
+  mediary-network:
+    driver: bridge
