@@ -1,0 +1,27 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependências e build
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+
+# Python (API)
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+
+# Editor e ferramentas locais
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Variáveis de ambiente
+.env
