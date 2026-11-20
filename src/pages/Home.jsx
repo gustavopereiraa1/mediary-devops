@@ -7,7 +7,7 @@ function Home({ onNavegar }) {
 
           <h1>
             Cuide das suas informações.
-            <span> Organize seus sintomas.</span>
+            <span> Registre tudo no Mediary!</span>
           </h1>
 
           <p>
